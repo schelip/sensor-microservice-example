@@ -38,8 +38,7 @@ module.exports = (app) => {
       const apparentTemp = calcApparentTemp(lastReading.temperature, lastReading.windSpeed);
 
       res.status(200).json({
-        temperature: lastReading.temperature,
-        relativeHumidity: lastReading.relativeHumidity,
+        ...lastReading,
         windSpeed: lastReading.windSpeed,
         heatIndex: heatIndex,
         apparentTemp: apparentTemp,
