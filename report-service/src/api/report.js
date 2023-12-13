@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 const lastReadingPath = 'http://localhost:3000/last-reading';
 
 function calcHeatIndex(temperature, relativeHumidity) {

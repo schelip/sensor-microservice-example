@@ -1,12 +1,15 @@
 require('express-async-errors');
+require('axios');
 const express = require('express');
 const morgan = require('morgan');
+const bodyParser = require('body-parser');
 
 let server = null;
 
 async function start(api) {
     const app = express();
     app.use(morgan('dev'));
+    app.use(bodyParser.json())
 
     app.use((err, req, res, next) => {
         console.error(err);
