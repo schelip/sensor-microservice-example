@@ -1,12 +1,7 @@
-let sensorReading = {
-  temperature: null,
-  relativeHumidity: null,
-  windSpeed: null,
-  timestamp: null
-};
+let readings = [];
 
 module.exports = (app) => {
-  app.post('/sensor-reading', async (req, res, next) => {
+  app.post('/reading', async (req, res, next) => {
     const { temperature, relativeHumidity, windSpeed } = req.body;
 
     if (!temperature || !relativeHumidity || !windSpeed) {
@@ -15,17 +10,32 @@ module.exports = (app) => {
 
     const timestamp = new Date();
 
-    sensorReading = {
+    readings.unshift({
       temperature,
       relativeHumidity,
       windSpeed,
-      timestamp
-    };
+      timestamp,
+    });
 
     res.status(200).json({ message: `Data from sensors successfully received at ${timestamp}.` });
   });
 
+  app.delete('/readings', async (req, res, next) => {
+    readings = [];
+    res.status(200);
+  });
+
+  app.get('/readings', async (req, res, next) => {
+    if (!readings)
+      res.status(204);
+    else
+      res.status(200).json(readings);
+  });
+
   app.get('/last-reading', async (req, res, next) => {
-    res.status(200).json(sensorReading);
+    if (!readings)
+      res.status(204);
+    else
+      res.status(200).json(readings[0]);
   });
 };

@@ -1,6 +1,8 @@
 const axios = require('axios');
 
-const lastReadingPath = 'http://localhost:3000/last-reading';
+const SENSOR_SERVICE = 'http://localhost:3000';
+const lastReadingPath = `${SENSOR_SERVICE}/last-reading`;
+const readingsPath = `${SENSOR_SERVICE}/readings`;
 
 function calcHeatIndex(temperature, relativeHumidity) {
   const tempFahrenheit = 1.8 * temperature + 32;
@@ -27,21 +29,26 @@ function calcApparentTemp(temperature, windSpeed) {
 module.exports = (app) => {
   app.get('/full-report', async (req, res, next) => {
     try {
-      const response = await axios.get(lastReadingPath);
-      const lastReading = response.data;
+      const response = await axios.get(readingsPath);
 
-      if (!lastReading || Object.values(lastReading).includes(null)) {
+      if (response.status === 204) {
         res.status(500).json({ error: 'Sensor data unavailable' });
       }
+
+      const readings = response.data;
+      const lastReading = readings[0];
     
+      
       const heatIndex = calcHeatIndex(lastReading.temperature, lastReading.relativeHumidity);
       const apparentTemp = calcApparentTemp(lastReading.temperature, lastReading.windSpeed);
+      const averageTemp = readings.reduce((acc, curr) => acc + curr.temperature, 0) / readings.length;
 
       res.status(200).json({
-        ...lastReading,
-        windSpeed: lastReading.windSpeed,
-        heatIndex: heatIndex,
-        apparentTemp: apparentTemp,
+        'lastReading': lastReading,
+        'heatIndex': heatIndex,
+        'apparentTemp': apparentTemp,
+        'windSpeed': lastReading.windSpeed,
+        'averageTemp': averageTemp
       });
     } catch (error) {
       console.error(error.message);
@@ -61,7 +68,7 @@ module.exports = (app) => {
       const heatIndex = calcHeatIndex(lastReading.temperature, lastReading.relativeHumidity);
 
       res.status(200).json({
-        heatIndex: heatIndex,
+        'heatIndex': heatIndex,
       });
     } catch (error) {
       console.error(error.message);
@@ -81,7 +88,7 @@ module.exports = (app) => {
       const apparentTemp = calcApparentTemp(lastReading.temperature, lastReading.windSpeed);
     
       res.status(200).json({
-        apparentTemp: apparentTemp,
+        'apparentTemp': apparentTemp,
       });
     } catch (error) {
       console.error(error.message);
