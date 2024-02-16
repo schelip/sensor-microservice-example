@@ -47,7 +47,6 @@ module.exports = (app) => {
         'lastReading': lastReading,
         'heatIndex': heatIndex,
         'apparentTemp': apparentTemp,
-        'windSpeed': lastReading.windSpeed,
         'averageTemp': averageTemp
       });
     } catch (error) {

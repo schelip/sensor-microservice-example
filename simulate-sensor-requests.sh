@@ -1,6 +1,6 @@
 #!/bin/bash
 
-url="http://localhost:3000/sensor-reading"
+url="http://localhost:3000/reading"
 
 temperature=$(awk -v min=20 -v max=30 'BEGIN{srand(); printf "%.2f\n", min+rand()*(max-min)}')
 relative_humidity=$(awk -v min=40 -v max=70 'BEGIN{srand(); printf "%.2f\n", min+rand()*(max-min)}')
@@ -20,5 +20,5 @@ while true; do
 
     echo "Response: $response"
 
-    sleep 10
+    sleep 3
 done

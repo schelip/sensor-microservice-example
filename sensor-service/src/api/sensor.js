@@ -22,19 +22,19 @@ module.exports = (app) => {
 
   app.delete('/readings', async (req, res, next) => {
     readings = [];
-    res.status(200);
+    res.sendStatus(200);
   });
 
   app.get('/readings', async (req, res, next) => {
-    if (!readings)
-      res.status(204);
+    if (!readings.length)
+      res.status(204).send({});
     else
       res.status(200).json(readings);
   });
 
   app.get('/last-reading', async (req, res, next) => {
-    if (!readings)
-      res.status(204);
+    if (!readings.length)
+      res.status(204).send({});
     else
       res.status(200).json(readings[0]);
   });
