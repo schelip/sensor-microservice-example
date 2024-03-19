@@ -1,10 +1,19 @@
 require('express-async-errors');
 const express = require('express');
 const morgan = require('morgan');
+const amqp = require('amqplib');
 
 let server = null;
 
+const rabbitmqUrl = process.env.RABBITMQ_CONN;
+const queueName = process.env.RABBITMQ_QNAME;
+
 async function start(api) {
+    const connection = await amqp.connect(rabbitmqUrl);
+    const channel = await connection.createChannel();
+
+    await channel.assertQueue(queueName, { durable: true });
+
     const app = express();
     app.use(morgan('dev'));
 
@@ -13,7 +22,7 @@ async function start(api) {
         res.sendStatus(500);
     });
 
-    api(app);
+    api(app, channel);
 
     server = app.listen(process.env.PORT);
     return server;

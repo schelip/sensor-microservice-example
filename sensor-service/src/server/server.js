@@ -3,10 +3,19 @@ require('axios');
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
+const amqp = require('amqplib');
 
 let server = null;
 
-async function start(api) {
+const rabbitmqUrl = process.env.RABBITMQ_CONN;
+const queueName = process.env.RABBITMQ_QNAME;
+
+async function start(api, db) {
+    const connection = await amqp.connect(rabbitmqUrl);
+    const channel = await connection.createChannel();
+    
+    await channel.assertQueue(queueName, { durable: true });
+
     const app = express();
     app.use(morgan('dev'));
     app.use(bodyParser.json())
@@ -16,7 +25,7 @@ async function start(api) {
         res.sendStatus(500);
     });
 
-    api(app);
+    api(app, db, channel);
 
     server = app.listen(process.env.PORT);
     return server;

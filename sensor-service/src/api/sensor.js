@@ -1,6 +1,27 @@
-let readings = [];
+const SensorReading = require('../db/model/sensorReading');
 
-module.exports = (app) => {
+const queueName = process.env.RABBITMQ_QNAME;
+
+async function publishLast24HoursReadings(channel) {
+  const last24Hours = new Date();
+  last24Hours.setHours(last24Hours.getHours() - 24);
+
+  try {
+    const readings = await SensorReading.find({ timestamp: { $gte: last24Hours } });
+
+    for (const reading of readings) {
+      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(reading)), { persistent: true });
+    }
+
+    console.log(`Published ${readings.length} readings from the last 24 hours.`);
+  } catch (error) {
+    console.error('Error publishing readings:', error);
+  }
+}
+
+module.exports = async (app, db, channel) => {
+  await publishLast24HoursReadings(channel);
+
   app.post('/reading', async (req, res, next) => {
     const { temperature, relativeHumidity, windSpeed } = req.body;
 
@@ -9,33 +30,57 @@ module.exports = (app) => {
     }
 
     const timestamp = new Date();
+    timestamp.setDate(timestamp.getDate() - 1);
 
-    readings.unshift({
-      temperature,
-      relativeHumidity,
-      windSpeed,
-      timestamp,
-    });
+    try {
+      const reading = new SensorReading({
+        temperature,
+        relativeHumidity,
+        windSpeed,
+        timestamp
+      });
 
-    res.status(200).json({ message: `Data from sensors successfully received at ${timestamp}.` });
+      await reading.save();
+
+      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(reading)), { persistent: true });
+      console.info('Sending reading to queue', queueName, message);
+
+      res.status(200).json({ message: `Data from sensors successfully received at ${timestamp}.` });
+    } catch (e) {
+      res.status(500).send({ error:`Error saving reading: ${e}`});
+    }
   });
 
   app.delete('/readings', async (req, res, next) => {
-    readings = [];
-    res.sendStatus(200);
+    try {
+      await SensorReading.deleteMany({});
+      res.status(200).json({ message: `All readings deleted succesfully.` });
+    } catch (e) {
+      res.status(500).send({ error:`'Error deleting readings from database: ${e}`});
+    }
   });
 
   app.get('/readings', async (req, res, next) => {
-    if (!readings.length)
-      res.status(204).send({});
-    else
-      res.status(200).json(readings);
+    try {
+      readings = await SensorReading.find();
+      if (!readings.length)
+        res.status(204).send({});
+      else
+        res.status(200).json(readings);
+    } catch (e) {
+      res.status(500).send({ error:`'Error getting readings from database: ${e}`});
+    }
   });
 
   app.get('/last-reading', async (req, res, next) => {
-    if (!readings.length)
-      res.status(204).send({});
-    else
-      res.status(200).json(readings[0]);
+    try {
+      reading = await SensorReading.findOne({}, null, { sort: { timestamp: -1 } });
+      if (!reading)
+        res.status(204).send({});
+      else
+        res.status(200).json(readings);
+    } catch (e) {
+      res.status(500).send({ error:`'Error getting last reading from database: ${e}`});
+    }
   });
 };

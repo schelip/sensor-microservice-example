@@ -1,8 +1,6 @@
-const axios = require('axios');
+const queueName = process.env.RABBITMQ_QNAME;
 
-const SENSOR_SERVICE = 'http://localhost:3000';
-const lastReadingPath = `${SENSOR_SERVICE}/last-reading`;
-const readingsPath = `${SENSOR_SERVICE}/readings`;
+let readings = [];
 
 function calcHeatIndex(temperature, relativeHumidity) {
   const tempFahrenheit = 1.8 * temperature + 32;
@@ -26,28 +24,46 @@ function calcApparentTemp(temperature, windSpeed) {
   return 33 + (10 * Math.sqrt(windSpeed) + 10.45 - windSpeed) * ((temperature - 33) / 22);
 }
 
-module.exports = (app) => {
+function connectQueue(channel) {
+  channel.consume(queueName, msg => {
+    const reading = JSON.parse(msg.content.toString())
+    if (!(readings.some(r => r._id === reading._id))) {
+      readings.unshift(reading);
+      console.log(`Consumed reading with timestamp ${reading.timestamp}`);
+    }
+    if (readings.length > 20)
+      readings.pop();
+    channel.ack(msg);
+  });
+}
+
+module.exports = (app, channel) => {
+  connectQueue(channel);
+
   app.get('/full-report', async (req, res, next) => {
     try {
-      const response = await axios.get(readingsPath);
-
-      if (response.status === 204) {
-        res.status(500).json({ error: 'Sensor data unavailable' });
+      if (readings.length === 0) {
+        res.status(204).send({});
+        return;
       }
 
-      const readings = response.data;
       const lastReading = readings[0];
-    
       
       const heatIndex = calcHeatIndex(lastReading.temperature, lastReading.relativeHumidity);
       const apparentTemp = calcApparentTemp(lastReading.temperature, lastReading.windSpeed);
       const averageTemp = readings.reduce((acc, curr) => acc + curr.temperature, 0) / readings.length;
+      const lastReadingTimestamp = lastReading.timestamp;
+      const oldestReadingTimestamp = readings[readings.length - 1].timestamp;
+      const totalReadings = readings.length;
 
       res.status(200).json({
-        'lastReading': lastReading,
-        'heatIndex': heatIndex,
-        'apparentTemp': apparentTemp,
-        'averageTemp': averageTemp
+        lastReading,
+        heatIndex,
+        apparentTemp,
+        averageTemp,
+        lastReadingTimestamp,
+        oldestReadingTimestamp,
+        totalReadings
       });
     } catch (error) {
       console.error(error.message);
@@ -57,8 +73,7 @@ module.exports = (app) => {
 
   app.get(`/report/heat-index`, async (req, res) => {
     try {
-      const response = await axios.get(lastReadingPath);
-      const lastReading = response.data;
+      const lastReading = readings[0];
 
       if (!lastReading || !lastReading.temperature || !lastReading.relativeHumidity) {
         res.status(500).json({ error: 'Sensor data unavailable' });
@@ -77,8 +92,7 @@ module.exports = (app) => {
 
   app.get(`/report/apparent-temperature`, async (req, res) => {
     try {
-      const response = await axios.get(lastReadingPath);
-      const lastReading = response.data;
+      const lastReading = readings[0];
 
       if (!lastReading || !lastReading.temperature || !lastReading.windSpeed) {
         res.status(500).json({ error: 'Sensor data unavailable' });
