@@ -6,13 +6,14 @@ const amqp = require('amqplib');
 let server = null;
 
 const rabbitmqUrl = process.env.RABBITMQ_CONN;
-const queueName = process.env.RABBITMQ_QNAME;
+const exchange = process.env.RABBITMQ_XNAME;
 
 async function start(api) {
     const connection = await amqp.connect(rabbitmqUrl);
     const channel = await connection.createChannel();
-
-    await channel.assertQueue(queueName, { durable: true });
+    await channel.assertExchange(exchange, 'fanout', { durable: false });
+    const { queue } = await channel.assertQueue('', { exclusive: true });
+    await channel.bindQueue(queue, exchange, '');
 
     const app = express();
     app.use(morgan('dev'));
@@ -22,7 +23,7 @@ async function start(api) {
         res.sendStatus(500);
     });
 
-    api(app, channel);
+    api(app, channel, queue);
 
     server = app.listen(process.env.PORT);
     return server;

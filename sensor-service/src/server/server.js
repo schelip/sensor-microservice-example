@@ -8,13 +8,12 @@ const amqp = require('amqplib');
 let server = null;
 
 const rabbitmqUrl = process.env.RABBITMQ_CONN;
-const queueName = process.env.RABBITMQ_QNAME;
+const exchange = process.env.RABBITMQ_XNAME;
 
 async function start(api, db) {
     const connection = await amqp.connect(rabbitmqUrl);
     const channel = await connection.createChannel();
-    
-    await channel.assertQueue(queueName, { durable: true });
+    await channel.assertExchange(exchange, 'fanout', { durable: false });
 
     const app = express();
     app.use(morgan('dev'));

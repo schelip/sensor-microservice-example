@@ -1,0 +1,48 @@
+http:
+  port: 8080
+admin:
+  port: 9876
+  host: localhost
+apiEndpoints:
+  sensor-api:
+    host: 'localhost'
+    paths: '/sensor-service/*'
+  report-api:
+    host: 'localhost'
+    paths: '/report-service/*'
+serviceEndpoints:
+  sensor:
+    url: 'http://localhost:3000'
+  report:
+    urls:
+      - 'http://localhost:3001'
+      - 'http://localhost:3002'
+      - 'http://localhost:3003'
+policies:
+  - basic-auth
+  - cors
+  - expression
+  - key-auth
+  - log
+  - oauth2
+  - proxy
+  - rate-limit
+pipelines:
+  report-pipeline:
+    apiEndpoints:
+      - report-api
+    policies:
+      - proxy:
+          - action:
+              serviceEndpoint: report
+              changeOrigin: true
+              stripPath: true
+  sensor-pipeline:
+    apiEndpoints:
+      - sensor-api
+    policies:
+      - proxy:
+          - action:
+              serviceEndpoint: sensor
+              changeOrigin: true
+              stripPath: true

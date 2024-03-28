@@ -1,6 +1,6 @@
 const SensorReading = require('../db/model/sensorReading');
 
-const queueName = process.env.RABBITMQ_QNAME;
+const exchange = process.env.RABBITMQ_XNAME;
 
 async function publishLast24HoursReadings(channel) {
   const last24Hours = new Date();
@@ -10,7 +10,7 @@ async function publishLast24HoursReadings(channel) {
     const readings = await SensorReading.find({ timestamp: { $gte: last24Hours } });
 
     for (const reading of readings) {
-      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(reading)), { persistent: true });
+      channel.publish(exchange, '', Buffer.from(JSON.stringify(reading)));
     }
 
     console.log(`Published ${readings.length} readings from the last 24 hours.`);
@@ -42,8 +42,8 @@ module.exports = async (app, db, channel) => {
 
       await reading.save();
 
-      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(reading)), { persistent: true });
-      console.info('Sending reading to queue', queueName, message);
+      channel.publish(exchange, '', Buffer.from(JSON.stringify(reading)));
+      console.info('Publishing reading to exchange', exchange);
 
       res.status(200).json({ message: `Data from sensors successfully received at ${timestamp}.` });
     } catch (e) {

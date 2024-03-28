@@ -1,5 +1,3 @@
-const queueName = process.env.RABBITMQ_QNAME;
-
 let readings = [];
 
 function calcHeatIndex(temperature, relativeHumidity) {
@@ -24,8 +22,8 @@ function calcApparentTemp(temperature, windSpeed) {
   return 33 + (10 * Math.sqrt(windSpeed) + 10.45 - windSpeed) * ((temperature - 33) / 22);
 }
 
-function connectQueue(channel) {
-  channel.consume(queueName, msg => {
+function connectQueue(channel, queue) {
+  channel.consume(queue, msg => {
     const reading = JSON.parse(msg.content.toString())
     if (!(readings.some(r => r._id === reading._id))) {
       readings.unshift(reading);
@@ -33,12 +31,11 @@ function connectQueue(channel) {
     }
     if (readings.length > 20)
       readings.pop();
-    channel.ack(msg);
-  });
+  }, { noAck: true });
 }
 
-module.exports = (app, channel) => {
-  connectQueue(channel);
+module.exports = (app, channel, queue) => {
+  connectQueue(channel, queue);
 
   app.get('/full-report', async (req, res, next) => {
     try {
